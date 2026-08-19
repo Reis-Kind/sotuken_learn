@@ -126,7 +126,7 @@ def plot(train_losses, test_accuracies):
     plt.legend()
 
     plt.tight_layout()
-    plt.savefig('binaryconnect_mnist_result.png')
+    plt.savefig('script/output/binaryconnect_mnist_result.png')
     print("\nグラフを 'binaryconnect_mnist_result.png' として保存した．")
     plt.show()
 
@@ -143,10 +143,10 @@ def main():
         transforms.Normalize((0.1307,), (0.3081,))
     ])
     
-    train_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+    train_dataset = datasets.MNIST(root='./script/data', train=True, download=True, transform=transform)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
-    test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
+    test_dataset = datasets.MNIST(root='./script/data', train=False, download=True, transform=transform)
     test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
 
     optimizer = optim.Adam(
