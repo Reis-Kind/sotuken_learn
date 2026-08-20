@@ -127,8 +127,8 @@ def plot(train_losses, test_accuracies):
     plt.legend()
 
     plt.tight_layout()
-    os.makedirs('./output', exist_ok=True) # フォルダがなければ作成
-    plt.savefig('./output/binaryconnect_mnist_result.png')
+    os.makedirs('./script/output', exist_ok=True) # フォルダがなければ作成
+    plt.savefig('./script/output/binaryconnect_mnist_result.png')
     print("\nグラフを 'binaryconnect_mnist_result.png' として保存した．")
     plt.show()
 
