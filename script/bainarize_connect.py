@@ -11,14 +11,18 @@ class BinaryConnectMnist(nn.Module):
         super().__init__()
 
         # 実数の重み
-        self.fc1 = nn.Linear(784, 128)
-        self.fc2 = nn.Linear(128, 10)
+        self.fc1 = nn.Linear(784, 128, bias=False)
+        self.fc2 = nn.Linear(128, 10, bias=False)
         self.layers = nn.ModuleList([self.fc1, self.fc2])
 
         # 二値化の重み
-        self.b_fc1 = nn.Linear(784, 128)
-        self.b_fc2 = nn.Linear(128, 10)
+        self.b_fc1 = nn.Linear(784, 128, bias=False)
+        self.b_fc2 = nn.Linear(128, 10, bias=False)
         self.b_layers = nn.ModuleList([self.b_fc1, self.b_fc2])
+
+        # 神の一手
+        self.bn1 = nn.BatchNorm1d(128)
+        self.bn2 = nn.BatchNorm1d(10)
 
         self.relu = nn.ReLU()
 
@@ -28,16 +32,14 @@ class BinaryConnectMnist(nn.Module):
         実数の重みを二値化
 
         """
-        # 一時的に勾配の追跡オフ
-        with torch.no_grad():
 
-            for layers, b_layers in zip(self.layers, self.b_layers):
-                # torch.signでもいいけど、0 のときに 0 を返してしまい，重みが +1 でも -1 でもなくなってしまう_
-                b_layers.weight.copy_(torch.where(layers.weight.data >= 0, 1.0, -1.0))
+        for layers, b_layers in zip(self.layers, self.b_layers):
+            # torch.signでもいいけど、0 のときに 0 を返してしまい，重みが +1 でも -1 でもなくなってしまう_
+            b_layers.weight.data = torch.where(layers.weight.data >= 0, 1.0, -1.0)
 
-                # 実数層 (layers) のバイアスを 二値化層 (b_layer) にそのまま複製
-                if layers.bias is not None:
-                    b_layers.bias.data = layers.bias.data.clone()
+            # 実数層 (layers) のバイアスを 二値化層 (b_layer) にそのまま複製
+            if layers.bias is not None and b_layers.bias is not None:
+                b_layers.bias.data = layers.bias.data.clone()
 
 
     def forward(self, x):
@@ -50,9 +52,13 @@ class BinaryConnectMnist(nn.Module):
         x = x.view(x.size(0), -1)
 
         self.binarize()
-        x = self.relu(self.b_fc1(x))
+
+        # 正規化したあとで非線形関数に入れたいのでここに入れない
+        x = self.b_fc1(x)
+        x = self.relu(self.bn1(x))
         # 0 ~ 9を判別させたいのでこの層には非線形関数はいれない
         x = self.b_fc2(x)
+        x = self.bn2(x)
 
         return x
 
@@ -168,7 +174,13 @@ def main():
     test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
     test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
 
-    optimizer = optim.Adam(model.layers.parameters(), lr=learning_rate)
+    optimizer = optim.Adam(
+        list(model.layers.parameters()) +
+        list(model.bn1.parameters()) +
+        list(model.bn2.parameters()), 
+        lr=learning_rate
+    )
+
     criterion = nn.CrossEntropyLoss()
 
 
