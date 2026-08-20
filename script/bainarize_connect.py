@@ -156,7 +156,7 @@ def plot(train_losses, test_accuracies):
 def main():
     epochs = 10
     batch_size = 64
-    learning_rate = 0.003
+    learning_rate = 0.001
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') # デバイス判定
     print(f"使用デバイス: {device}")
@@ -181,11 +181,10 @@ def main():
         lr=learning_rate
     )
 
-    # 学習率をコサイン関数の波形に沿って徐々に小さくしていく
+    # 学習率をcos関数の波形に沿って徐々に小さくしていく
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
     criterion = nn.CrossEntropyLoss()
-
 
     train_losses = []
     test_accuracies = []
