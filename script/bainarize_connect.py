@@ -28,13 +28,16 @@ class BinaryConnectMnist(nn.Module):
         実数の重みを二値化
 
         """
-        for layers, b_layers in zip(self.layers, self.b_layers):
-            # torch.signでもいいけど、0 のときに 0 を返してしまい，重みが +1 でも -1 でもなくなってしまう
-            b_layers.weight.data = torch.where(layers.weight.data >= 0, 1.0, -1.0)
+        # 一時的に勾配の追跡オフ
+        with torch.no_grad():
 
-            # 実数層 (layers) のバイアスを 二値化層 (b_layer) にそのまま複製
-            if layers.bias is not None:
-                b_layers.bias.data = layers.bias.data.clone()
+            for layers, b_layers in zip(self.layers, self.b_layers):
+                # torch.signでもいいけど、0 のときに 0 を返してしまい，重みが +1 でも -1 でもなくなってしまう_
+                b_layers.weight.copy_(torch.where(layers.weight.data >= 0, 1.0, -1.0))
+
+                # 実数層 (layers) のバイアスを 二値化層 (b_layer) にそのまま複製
+                if layers.bias is not None:
+                    b_layers.bias.data = layers.bias.data.clone()
 
 
     def forward(self, x):
@@ -79,6 +82,12 @@ class BinaryConnectMnist(nn.Module):
 
         """
         optimizer.zero_grad()
+        for b_layer in self.b_layers:
+            if b_layer.weight.grad is not None:
+                b_layer.weight.grad.zero_()
+            if b_layer.bias is not None and b_layer.bias.grad is not None:
+                b_layer.bias.grad.zero_()
+
         loss.backward()
         self.set_grad()
         optimizer.step()
