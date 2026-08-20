@@ -3,9 +3,18 @@ name = "sotuken-learn"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 dependencies = [
-    "matplotlib>=3.11.1",
-    "torch>=2.13.0",
-    "torchvision>=0.28.0",
+    "matplotlib>=3.8.0",
+    "torch==2.6.0+cu124",
+    "torchvision==0.21.0+cu124",
 ]
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch" }
+torchvision = { index = "pytorch" }
