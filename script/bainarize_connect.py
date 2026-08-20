@@ -11,14 +11,18 @@ class BinaryConnectMnist(nn.Module):
         super().__init__()
 
         # 実数の重み
-        self.fc1 = nn.Linear(784, 128)
-        self.fc2 = nn.Linear(128, 10)
-        self.layers = [self.fc1, self.fc2]
+        self.fc1 = nn.Linear(784, 128, bias=False)
+        self.fc2 = nn.Linear(128, 10, bias=False)
+        self.layers = nn.ModuleList([self.fc1, self.fc2])
 
         # 二値化の重み
-        self.b_fc1 = nn.Linear(784, 128)
-        self.b_fc2 = nn.Linear(128, 10)
-        self.b_layers = [self.b_fc1, self.b_fc2]
+        self.b_fc1 = nn.Linear(784, 128, bias=False)
+        self.b_fc2 = nn.Linear(128, 10, bias=False)
+        self.b_layers = nn.ModuleList([self.b_fc1, self.b_fc2])
+
+        # 神の一手
+        self.bn1 = nn.BatchNorm1d(128)
+        self.bn2 = nn.BatchNorm1d(10)
 
         self.relu = nn.ReLU()
 
@@ -28,8 +32,14 @@ class BinaryConnectMnist(nn.Module):
         実数の重みを二値化
 
         """
+
         for layers, b_layers in zip(self.layers, self.b_layers):
-            b_layers.weight.data = torch.sign(layers.weight.data)
+            # torch.signでもいいけど、0 のときに 0 を返してしまい，重みが +1 でも -1 でもなくなってしまう_
+            b_layers.weight.data = torch.where(layers.weight.data >= 0, 1.0, -1.0)
+
+            # 実数層 (layers) のバイアスを 二値化層 (b_layer) にそのまま複製
+            if layers.bias is not None and b_layers.bias is not None:
+                b_layers.bias.data = layers.bias.data.clone()
 
 
     def forward(self, x):
@@ -42,9 +52,13 @@ class BinaryConnectMnist(nn.Module):
         x = x.view(x.size(0), -1)
 
         self.binarize()
-        x = self.relu(self.b_fc1(x))
+
+        # 正規化したあとで非線形関数に入れたいのでここに入れない
+        x = self.b_fc1(x)
+        x = self.relu(self.bn1(x))
         # 0 ~ 9を判別させたいのでこの層には非線形関数はいれない
         x = self.b_fc2(x)
+        x = self.bn2(x)
 
         return x
 
@@ -56,6 +70,8 @@ class BinaryConnectMnist(nn.Module):
         for layers, b_layers in zip(self.layers, self.b_layers):
             if b_layers.weight.grad is not None:
                 layers.weight.grad = b_layers.weight.grad.clone()
+            if b_layers.bias is not None and b_layers.bias.grad is not None:
+                layers.bias.grad = b_layers.bias.grad.clone()
 
     def clipping(self):
         """
@@ -72,6 +88,12 @@ class BinaryConnectMnist(nn.Module):
 
         """
         optimizer.zero_grad()
+        for b_layer in self.b_layers:
+            if b_layer.weight.grad is not None:
+                b_layer.weight.grad.zero_()
+            if b_layer.bias is not None and b_layer.bias.grad is not None:
+                b_layer.bias.grad.zero_()
+
         loss.backward()
         self.set_grad()
         optimizer.step()
@@ -127,15 +149,14 @@ def plot(train_losses, test_accuracies):
     plt.legend()
 
     plt.tight_layout()
-    os.makedirs('./script/output', exist_ok=True) # フォルダがなければ作成
-    plt.savefig('./script/output/binaryconnect_mnist_result.png')
+    os.makedirs('./output', exist_ok=True) # フォルダがなければ作成
+    plt.savefig('./output/binaryconnect_mnist_result.png')
     print("\nグラフを 'binaryconnect_mnist_result.png' として保存した．")
-    plt.show()
 
 def main():
     epochs = 10
     batch_size = 64
-    learning_rate = 0.0005
+    learning_rate = 0.001
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') # デバイス判定
     print(f"使用デバイス: {device}")
@@ -154,11 +175,16 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
 
     optimizer = optim.Adam(
-        [p for layer in model.layers for p in layer.parameters()],
+        list(model.layers.parameters()) +
+        list(model.bn1.parameters()) +
+        list(model.bn2.parameters()), 
         lr=learning_rate
     )
-    criterion = nn.CrossEntropyLoss()
 
+    # 学習率をcos関数の波形に沿って徐々に小さくしていく
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+
+    criterion = nn.CrossEntropyLoss()
 
     train_losses = []
     test_accuracies = []
@@ -180,6 +206,8 @@ def main():
         # 平均loss
         epoch_loss = running_loss / len(train_loader.dataset)
         epoch_acc = evaluate(model, test_loader, device)
+
+        scheduler.step()
 
         train_losses.append(epoch_loss)
         test_accuracies.append(epoch_acc)
