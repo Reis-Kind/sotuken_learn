@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -77,7 +78,7 @@ class BinaryConnectMnist(nn.Module):
         self.clipping()
 
 
-def evaluate(model, test_loader):
+def evaluate(model, test_loader, device):
     """
     正答率の計算
     
@@ -88,7 +89,7 @@ def evaluate(model, test_loader):
 
     with torch.no_grad():
         for data, target in test_loader:
-            data, target = data, target
+            data, target = data.to(device), target.to(device)
             output = model(data)
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
@@ -126,16 +127,19 @@ def plot(train_losses, test_accuracies):
     plt.legend()
 
     plt.tight_layout()
+    os.makedirs('./output', exist_ok=True) # フォルダがなければ作成
     plt.savefig('./output/binaryconnect_mnist_result.png')
     print("\nグラフを 'binaryconnect_mnist_result.png' として保存した．")
     plt.show()
 
 def main():
-    epochs = 5
+    epochs = 10
     batch_size = 64
     learning_rate = 0.0005
 
-    model = BinaryConnectMnist()
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') # デバイス判定
+    print(f"使用デバイス: {device}")
+    model = BinaryConnectMnist().to(device) # モデルを GPU へ転送
 
     # データセットの準備
     transform = transforms.Compose([
@@ -167,6 +171,7 @@ def main():
         running_loss = 0.0
 
         for data, target in train_loader:
+            data, target = data.to(device), target.to(device) # データを GPU へ転送
             output = model(data)
             loss = criterion(output, target)
             model.update(optimizer, loss)
@@ -174,7 +179,7 @@ def main():
             running_loss += loss.item() * data.size(0)
         # 平均loss
         epoch_loss = running_loss / len(train_loader.dataset)
-        epoch_acc = evaluate(model, test_loader)
+        epoch_acc = evaluate(model, test_loader, device)
 
         train_losses.append(epoch_loss)
         test_accuracies.append(epoch_acc)
