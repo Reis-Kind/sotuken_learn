@@ -13,12 +13,12 @@ class BinaryConnectMnist(nn.Module):
         # 実数の重み
         self.fc1 = nn.Linear(784, 128)
         self.fc2 = nn.Linear(128, 10)
-        self.layers = [self.fc1, self.fc2]
+        self.layers = nn.ModuleList([self.fc1, self.fc2])
 
         # 二値化の重み
         self.b_fc1 = nn.Linear(784, 128)
         self.b_fc2 = nn.Linear(128, 10)
-        self.b_layers = [self.b_fc1, self.b_fc2]
+        self.b_layers = nn.ModuleList([self.b_fc1, self.b_fc2])
 
         self.relu = nn.ReLU()
 
@@ -29,7 +29,12 @@ class BinaryConnectMnist(nn.Module):
 
         """
         for layers, b_layers in zip(self.layers, self.b_layers):
-            b_layers.weight.data = torch.sign(layers.weight.data)
+            # torch.signでもいいけど、0 のときに 0 を返してしまい，重みが +1 でも -1 でもなくなってしまう
+            b_layers.weight.data = torch.where(layers.weight.data >= 0, 1.0, -1.0)
+
+            # 実数層 (layers) のバイアスを 二値化層 (b_layer) にそのまま複製
+            if layers.bias is not None:
+                b_layers.bias.data = layers.bias.data.clone()
 
 
     def forward(self, x):
@@ -56,6 +61,8 @@ class BinaryConnectMnist(nn.Module):
         for layers, b_layers in zip(self.layers, self.b_layers):
             if b_layers.weight.grad is not None:
                 layers.weight.grad = b_layers.weight.grad.clone()
+            if b_layers.bias is not None and b_layers.bias.grad is not None:
+                layers.bias.grad = b_layers.bias.grad.clone()
 
     def clipping(self):
         """
@@ -127,10 +134,9 @@ def plot(train_losses, test_accuracies):
     plt.legend()
 
     plt.tight_layout()
-    os.makedirs('./script/output', exist_ok=True) # フォルダがなければ作成
-    plt.savefig('./script/output/binaryconnect_mnist_result.png')
+    os.makedirs('./output', exist_ok=True) # フォルダがなければ作成
+    plt.savefig('./output/binaryconnect_mnist_result.png')
     print("\nグラフを 'binaryconnect_mnist_result.png' として保存した．")
-    plt.show()
 
 def main():
     epochs = 10
@@ -153,10 +159,7 @@ def main():
     test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
     test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
 
-    optimizer = optim.Adam(
-        [p for layer in model.layers for p in layer.parameters()],
-        lr=learning_rate
-    )
+    optimizer = optim.Adam(model.layers.parameters(), lr=learning_rate)
     criterion = nn.CrossEntropyLoss()
 
 
