@@ -85,7 +85,7 @@ def genetic_algorithm(model, x_eval, y_eval):
                 scores_acc.append(acc)
                 scores_loss.append(loss)
 
-            
+
             best_j = np.argmax(scores_all)
             worst_j = np.argmin(scores_all)
 
