@@ -47,12 +47,13 @@ def genetic_algorithm(model, x_eval, y_eval):
     島モデルGA
     
     """
-    islands = 4
+    islands = 5
     models_per_island = 16
-    generation = 100
-    migration_interval = 10
+    generation = 200
+    migration_interval = 50
     mutation_strength = 0.1
-    mutation_rate = 0.05
+    origin_mutation_strength = mutation_strength
+    mutation_rate = 0.001
 
     # 乱数シード固定
     torch.manual_seed(42)
@@ -85,11 +86,17 @@ def genetic_algorithm(model, x_eval, y_eval):
                 scores_acc.append(acc)
                 scores_loss.append(loss)
 
+            # 正答率と損失を両方考慮して評価
+            combined_scores = []
+            for acc, loss in zip(scores_acc, scores_loss):
+                # Accuracy をベースに，Loss が小さいほど少しだけ値が高くなるように計算
+                score = acc - (0.00001 * loss)
+                combined_scores.append(score)
 
-            best_j = np.argmax(scores_all)
-            worst_j = np.argmin(scores_all)
+            best_j = np.argmax(combined_scores)
+            worst_j = np.argmin(combined_scores)
 
-            island_best_score.append(scores_all[best_j])
+            island_best_score.append(combined_scores[best_j])
             island_best_w.append(island_w[i][best_j].clone())
             island_best_b.append(island_b[i][best_j].clone())
             island_worst.append(worst_j)
@@ -134,12 +141,12 @@ def genetic_algorithm(model, x_eval, y_eval):
         acc_history.append(best_acc)
         loss_history.append(best_loss)
 
-        print(
-            f"{gen + 1:3d}世代 | Loss: {best_loss:.4f} | Accuracy: {best_acc * 100:.2f}%"
-        )
+        # 10世代ごとにログを出力（および最終世代）
+        if (gen + 1) % 10 == 0 or gen == 0:
+            print(f"{gen + 1:3d}世代 | Loss: {best_loss:.4f} | Accuracy: {best_acc * 100:.2f}%")
 
-        # 変異強度の減衰
-        mutation_strength *= 1.0 - (gen / generation) * 0.5
+        # 変異強度の減衰(常に初期値を参照して計算)
+        mutation_strength = origin_mutation_strength * (1.0 - (gen / generation) * 0.5)
 
     return best_w, best_b, acc_history, loss_history
 
@@ -185,7 +192,8 @@ def main():
     plt.grid(True)
 
     plt.tight_layout()
-    plt.show()
+    plt.savefig("./output/binarize_ga.png")
+    print("グラフを result.png に保存した．")
 
 
 if __name__ == "__main__":
