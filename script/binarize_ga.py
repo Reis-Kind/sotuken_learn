@@ -7,12 +7,16 @@ from torchvision import datasets, transforms
 class BinarizedNeuroEvo(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(784, 128)
+        self.fc1 = nn.Linear(784, 128, bias=False)
+        # 移動平均は無視
+        self.bn1 = nn.BatchNorm1d(128, track_running_stats=False)
         self.fc2 = nn.Linear(128, 10)
 
     def forward(self, x):
         x = x.view(-1, 784)
-        x = torch.where(self.fc1(x) >= 0, 1.0, -1.0)
+        x = self.fc1(x)
+        x = self.bn1(x)
+        x = torch.where(x >= 0, 1.0, -1.0)
         # 出力層は二値化しない
         x = self.fc2(x)
         return x
@@ -28,9 +32,13 @@ def evaluate(model, w, b, x, y):
 
     # GAではパラメータを一次元で管理しているため、一次元のパラメータをfc1とfc2に分割
     model.fc1.weight.data = w[:w_size].view(128, 784).clone()
-    model.fc1.bias.data = b[:b_size].clone()
+    # model.fc1.bias.data = b[:b_size].clone()
     model.fc2.weight.data = w[w_size:].view(10, 128).clone()
-    model.fc2.bias.data = b[b_size:].clone()
+    # model.fc2.bias.data = b[b_size:].clone()
+
+    model.bn1.weight.data = b[:128].clone()        
+    model.bn1.bias.data   = b[128:256].clone()    
+    model.fc2.bias.data   = b[256:].clone()        # fc2.bias
 
     model.eval()
     with torch.no_grad():
@@ -59,7 +67,7 @@ def genetic_algorithm(model, x_eval, y_eval):
     torch.manual_seed(42)
 
     weight = 128 * 784 + 10 * 128
-    bias = 128 + 10
+    bias = 128 + 128 + 10
 
     # 島の数 * 島あたりの個体数 * 重みの総数の乱数を生成し、二値化
     island_w = torch.where(
@@ -169,11 +177,14 @@ def main():
 
     # 最終的な最強パラメータをセット
     w1_size = 128 * 784
-    b1_size = 128
+    # b1_size = 128
     model.fc1.weight.data = best_w[:w1_size].view(128, 784)
-    model.fc1.bias.data = best_b[:b1_size]
+    # model.fc1.bias.data = best_b[:b1_size]
     model.fc2.weight.data = best_w[w1_size:].view(10, 128)
-    model.fc2.bias.data = best_b[b1_size:]
+    # model.fc2.bias.data = best_b[b1_size:]
+    model.bn1.weight.data = best_b[:128].clone()  
+    model.bn1.bias.data = best_b[128:256].clone()  
+    model.fc2.bias.data = best_b[256:].clone()  
 
     # 学習曲線の描画
     plt.figure(figsize=(10, 4))
