@@ -90,7 +90,7 @@ def genetic_algorithm(model, x_eval, y_eval):
             combined_scores = []
             for acc, loss in zip(scores_acc, scores_loss):
                 # Accuracy をベースに，Loss が小さいほど少しだけ値が高くなるように計算
-                score = acc - (0.00001 * loss)
+                score = acc - (0.01 * loss)
                 combined_scores.append(score)
 
             best_j = np.argmax(combined_scores)
