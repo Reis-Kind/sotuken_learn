@@ -76,8 +76,8 @@ def genetic_algorithm(model, x_eval, y_eval):
     
     """
     islands = 5
-    models_per_island = 16
-    generation = 500
+    models_per_island = 32
+    generation = 1000
     migration_interval = 50
     mutation_strength = 0.1
     origin_mutation_strength = mutation_strength
