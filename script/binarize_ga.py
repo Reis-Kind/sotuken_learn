@@ -104,7 +104,7 @@ def genetic_algorithm(model, x_eval, y_eval):
 
         # 世代が進むにつれて突然変異する確率を減らす
         progress = gen / generation
-        mutation_rate = 0.005 * (1.0 - progress) + 0.0005 * progress
+        mutation_rate = 0.001 * (1.0 - progress) + 0.0005 * progress
 
         island_best_score = []
         island_best_w = []
