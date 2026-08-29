@@ -50,6 +50,26 @@ def evaluate(model, w, b, x, y):
 
     return acc, loss.item(),
 
+def tournament_select(combined_scores, k):
+    """
+    交叉するための親をランダムにk体選び，その中で最もスコアの高い個体のインデックスを返す関数（交叉の際，多様性が失われないように）
+
+    """
+    # 一度選んだ要素は無視してk個抽出するのでreplace=False
+    candidates = np.random.choice(len(combined_scores), k, replace=False)
+
+    # 抽出したインデックスの一つ目
+    best_idx = candidates[0]
+    # ↑のスコア
+    best_score = combined_scores[candidates[0]]
+
+    for i in candidates:
+        if combined_scores[i] > best_score:
+            best_score = combined_scores[i]
+            best_idx = i
+
+    return best_idx 
+
 def genetic_algorithm(model, x_eval, y_eval):
     """
     島モデルGA
@@ -57,7 +77,7 @@ def genetic_algorithm(model, x_eval, y_eval):
     """
     islands = 5
     models_per_island = 16
-    generation = 200
+    generation = 500
     migration_interval = 50
     mutation_strength = 0.1
     origin_mutation_strength = mutation_strength
@@ -75,6 +95,7 @@ def genetic_algorithm(model, x_eval, y_eval):
     )
     # 島の数 * 島アタありの総数 * バイアスの総数の乱数を生成
     island_b = torch.randn(islands, models_per_island, bias) * 0.1
+
 
     loss_history = []
     acc_history = []
@@ -113,8 +134,14 @@ def genetic_algorithm(model, x_eval, y_eval):
             for j in range(models_per_island):
                 # エリートは除外
                 if j != best_j:
+
+                    # 交叉の片親はランダムに選ぶ（毎回選びなおす）
+                    parent_idx = tournament_select(combined_scores, 3)
+                    parent_w = island_w[i][parent_idx]
+                    parent_b = island_b[i][parent_idx]
+
                     # 重み(２値)の交叉、２値だから遺伝子を混ぜずに50%の確率でエリートの遺伝子と入れ替え
-                    island_w[i][j] = torch.where(torch.rand(weight) < 0.5, island_best_w[i], island_w[i][j])
+                    island_w[i][j] = torch.where(torch.rand(weight) < 0.5, parent_w, island_w[i][j])
 
                     # 重み(２値)の突然変異↓のif文みたいなイメージ（実際は違う）
                     """if torch.rand(weight) < mutation_rate:
@@ -123,7 +150,7 @@ def genetic_algorithm(model, x_eval, y_eval):
                     island_w[i][j][w_mut_mask] *= -1.0
 
                     # バイアス(float)の交叉、エリートのと自分のを50％ずつ合体
-                    island_b[i][j] = (0.5 * island_best_b[i] + 0.5 * island_b[i][j])
+                    island_b[i][j] = (0.5 * parent_b + 0.5 * island_b[i][j])
                     # バイアス(float)の突然変異、
                     # True、Falseを.float()で1.0,-1.0にして突然変異を起こすか起こさないかのスイッチ
                     b_mut_mask = (torch.rand(bias) < mutation_rate).float()
@@ -204,7 +231,7 @@ def main():
 
     plt.tight_layout()
     plt.savefig("./output/binarize_ga.png")
-    print("グラフを result.png に保存した．")
+    print("グラフを ./output/result.png に保存した．")
 
 
 if __name__ == "__main__":
