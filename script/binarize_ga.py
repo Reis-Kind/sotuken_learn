@@ -28,7 +28,6 @@ def evaluate(model, w, b, x, y):
 
     """
     w_size = 128 * 784
-    b_size = 128
 
     # GAではパラメータを一次元で管理しているため、一次元のパラメータをfc1とfc2に分割
     model.fc1.weight.data = w[:w_size].view(128, 784).clone()
@@ -46,7 +45,7 @@ def evaluate(model, w, b, x, y):
         acc = (predict == y).float().mean().item()
 
 
-    return acc, loss.item(),
+    return acc, loss.item()
 
 def tournament_select(combined_scores, k):
     """
@@ -133,6 +132,10 @@ def genetic_algorithm(model, x_eval, y_eval):
             island_best_b.append(island_b[i][best_j].clone())
             island_worst.append(worst_j)
 
+            # 交叉や突然変異で遺伝子が書き換わるのでコピーを取っておく
+            origin_w = island_w[i].clone()
+            origin_b = island_b[i].clone()
+
             # エリート以外は交叉と突然変異
             for j in range(models_per_island):
                 # エリートは除外
@@ -140,11 +143,11 @@ def genetic_algorithm(model, x_eval, y_eval):
 
                     # 交叉の片親はランダムに選ぶ（毎回選びなおす）
                     parent_idx = tournament_select(combined_scores, 3)
-                    parent_w = island_w[i][parent_idx]
-                    parent_b = island_b[i][parent_idx]
+                    parent_w = origin_w[parent_idx]
+                    parent_b = origin_b[parent_idx]
 
                     # 重み(２値)の交叉、２値だから遺伝子を混ぜずに50%の確率でエリートの遺伝子と入れ替え
-                    island_w[i][j] = torch.where(torch.rand(weight) < 0.5, parent_w, island_w[i][j])
+                    island_w[i][j] = torch.where(torch.rand(weight) < 0.5, parent_w, origin_w[j])
 
                     # 重み(２値)の突然変異↓のif文みたいなイメージ（実際は違う）
                     """if torch.rand(weight) < mutation_rate:
@@ -153,11 +156,11 @@ def genetic_algorithm(model, x_eval, y_eval):
                     island_w[i][j][w_mut_mask] *= -1.0
 
                     # バイアス(float)の交叉、エリートのと自分のを50％ずつ合成
-                    """ island_b[i][j] = (0.5 * parent_b + 0.5 * island_b[i][j]) """
+                    """ island_b[i][j] = (0.5 * parent_b + 0.5 * origin_b[j]) """
 
                     # ↑の交叉だと多様性が失われるようなので50％の確率で親（ランダムに選ばれた）の遺伝子をコピー
                     b_cross_mask = torch.rand(bias) < 0.5
-                    island_b[i][j] = torch.where(b_cross_mask, parent_b, island_b[i][j])
+                    island_b[i][j] = torch.where(b_cross_mask, parent_b, origin_b[j])
 
                     # バイアス(float)の突然変異、
                     # True、Falseを.float()で1.0,-1.0にして突然変異を起こすか起こさないかのスイッチ
@@ -239,7 +242,7 @@ def main():
 
     plt.tight_layout()
     plt.savefig("./output/binarize_ga.png")
-    print("グラフを ./output/result.png に保存した．")
+    print("グラフを ./output/binarize_ga.png に保存した．")
 
 
 if __name__ == "__main__":
