@@ -32,9 +32,7 @@ def evaluate(model, w, b, x, y):
 
     # GAではパラメータを一次元で管理しているため、一次元のパラメータをfc1とfc2に分割
     model.fc1.weight.data = w[:w_size].view(128, 784).clone()
-    # model.fc1.bias.data = b[:b_size].clone()
     model.fc2.weight.data = w[w_size:].view(10, 128).clone()
-    # model.fc2.bias.data = b[b_size:].clone()
 
     model.bn1.weight.data = b[:128].clone()        
     model.bn1.bias.data   = b[128:256].clone()    
@@ -77,7 +75,7 @@ def genetic_algorithm(model, x_eval, y_eval):
     """
     islands = 5
     models_per_island = 32
-    generation = 1000
+    generation = 500
     migration_interval = 50
     mutation_strength = 0.1
     origin_mutation_strength = mutation_strength
@@ -154,8 +152,13 @@ def genetic_algorithm(model, x_eval, y_eval):
                     w_mut_mask = torch.rand(weight) < mutation_rate
                     island_w[i][j][w_mut_mask] *= -1.0
 
-                    # バイアス(float)の交叉、エリートのと自分のを50％ずつ合体
-                    island_b[i][j] = (0.5 * parent_b + 0.5 * island_b[i][j])
+                    # バイアス(float)の交叉、エリートのと自分のを50％ずつ合成
+                    """ island_b[i][j] = (0.5 * parent_b + 0.5 * island_b[i][j]) """
+
+                    # ↑の交叉だと多様性が失われるようなので50％の確率で親（ランダムに選ばれた）の遺伝子をコピー
+                    b_cross_mask = torch.rand(bias) < 0.5
+                    island_b[i][j] = torch.where(b_cross_mask, parent_b, island_b[i][j])
+
                     # バイアス(float)の突然変異、
                     # True、Falseを.float()で1.0,-1.0にして突然変異を起こすか起こさないかのスイッチ
                     b_mut_mask = (torch.rand(bias) < mutation_rate).float()
