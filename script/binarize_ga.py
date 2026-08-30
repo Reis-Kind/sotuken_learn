@@ -72,9 +72,9 @@ def genetic_algorithm(model, x_eval, y_eval):
     島モデルGA
     
     """
-    islands = 5
-    models_per_island = 32
-    generation = 500
+    islands = 10
+    models_per_island = 16
+    generation = 1500
     migration_interval = 50
     mutation_strength = 0.1
     origin_mutation_strength = mutation_strength
