@@ -77,7 +77,7 @@ def genetic_algorithm(model, x_eval, y_eval):
     """
     islands = 5
     models_per_island = 32
-    generation = 1000
+    generation = 2000
     migration_interval = 50
     mutation_strength = 0.1
     origin_mutation_strength = mutation_strength
@@ -93,7 +93,7 @@ def genetic_algorithm(model, x_eval, y_eval):
     island_w = torch.where(
         torch.randn(islands, models_per_island, weight) > 0, 1.0, -1.0
     )
-    # 島の数 * 島アタありの総数 * バイアスの総数の乱数を生成
+    # 島の数 * 島あたりの総数 * バイアスの総数の乱数を生成
     island_b = torch.randn(islands, models_per_island, bias) * 0.1
 
 
@@ -207,7 +207,7 @@ def main():
 
     best_w, best_b, acc_history, loss_history = genetic_algorithm(model, x_eval, y_eval)
 
-    # 最終的な最強パラメータをセット
+    # 最終的なパラメータ
     w1_size = 128 * 784
     # b1_size = 128
     model.fc1.weight.data = best_w[:w1_size].view(128, 784)
