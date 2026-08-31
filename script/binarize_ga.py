@@ -7,15 +7,12 @@ from torchvision import datasets, transforms
 class BinarizedNeuroEvo(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(784, 128, bias=False)
-        # 移動平均は無視
-        self.bn1 = nn.BatchNorm1d(128)
+        self.fc1 = nn.Linear(784, 128, bias=True)
         self.fc2 = nn.Linear(128, 10)
 
     def forward(self, x):
         x = x.view(-1, 784)
         x = self.fc1(x)
-        x = self.bn1(x)
         x = torch.where(x >= 0, 1.0, -1.0)
         # 出力層は二値化しない
         x = self.fc2(x)
@@ -33,11 +30,11 @@ def evaluate(model, w, b, x, y):
     model.fc1.weight.data = w[:w_size].view(128, 784).clone()
     model.fc2.weight.data = w[w_size:].view(10, 128).clone()
 
-    model.bn1.weight.data = b[:128].clone()        
-    model.bn1.bias.data   = b[128:256].clone()    
-    model.fc2.bias.data   = b[256:].clone()        # fc2.bias
+    model.fc1.bias.data = b[:128].clone()        
+    model.fc2.bias.data = b[128:].clone()        # fc2.bias
 
-    model.train()
+    # BNがなくなったのでtrain/evalの区別は不要、evalで統一
+    model.eval()
     with torch.no_grad():
         outputs = model(x)
         loss = nn.functional.cross_entropy(outputs, y)
@@ -84,7 +81,7 @@ def genetic_algorithm(model, x_eval, y_eval):
     torch.manual_seed(42)
 
     weight = 128 * 784 + 10 * 128
-    bias = 128 + 128 + 10
+    bias = 128 + 10
 
     # 島の数 * 島あたりの個体数 * 重みの総数の乱数を生成し、二値化
     island_w = torch.where(
@@ -222,9 +219,8 @@ def main():
     # model.fc1.bias.data = best_b[:b1_size]
     model.fc2.weight.data = best_w[w1_size:].view(10, 128)
     # model.fc2.bias.data = best_b[b1_size:]
-    model.bn1.weight.data = best_b[:128].clone()  
-    model.bn1.bias.data = best_b[128:256].clone()  
-    model.fc2.bias.data = best_b[256:].clone()  
+    model.fc1.bias.data = best_b[:128].clone()    
+    model.fc2.bias.data = best_b[128:].clone()  
 
     # 学習曲線の描画
     plt.figure(figsize=(10, 4))
