@@ -218,11 +218,8 @@ def main():
 
     # 最終的な最強パラメータをセット
     w1_size = 128 * 784
-    # b1_size = 128
     model.fc1.weight.data = best_w[:w1_size].view(128, 784)
-    # model.fc1.bias.data = best_b[:b1_size]
     model.fc2.weight.data = best_w[w1_size:].view(10, 128)
-    # model.fc2.bias.data = best_b[b1_size:]
     model.bn1.weight.data = best_b[:128].clone()  
     model.bn1.bias.data = best_b[128:256].clone()  
     model.fc2.bias.data = best_b[256:].clone()  
