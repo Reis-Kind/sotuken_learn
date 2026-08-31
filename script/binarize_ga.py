@@ -9,7 +9,7 @@ class BinarizedNeuroEvo(nn.Module):
         super().__init__()
         self.fc1 = nn.Linear(784, 128, bias=False)
         # 移動平均は無視
-        self.bn1 = nn.BatchNorm1d(128, track_running_stats=False)
+        self.bn1 = nn.BatchNorm1d(128)
         self.fc2 = nn.Linear(128, 10)
 
     def forward(self, x):
@@ -37,7 +37,7 @@ def evaluate(model, w, b, x, y):
     model.bn1.bias.data   = b[128:256].clone()    
     model.fc2.bias.data   = b[256:].clone()        # fc2.bias
 
-    model.eval()
+    model.train()
     with torch.no_grad():
         outputs = model(x)
         loss = nn.functional.cross_entropy(outputs, y)
@@ -72,9 +72,9 @@ def genetic_algorithm(model, x_eval, y_eval):
     島モデルGA
     
     """
-    islands = 10
+    islands = 5
     models_per_island = 32
-    generation = 5000
+    generation = 1000
     migration_interval = 50
     mutation_strength = 0.1
     origin_mutation_strength = mutation_strength
@@ -209,6 +209,8 @@ def main():
     x_eval = torch.stack([dataset[i][0] for i in indices])
     y_eval = torch.tensor([dataset[i][1] for i in indices])
 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') # デバイス判定
+    print(f"使用デバイス: {device}")
     model = BinarizedNeuroEvo()
 
     best_w, best_b, acc_history, loss_history = genetic_algorithm(model, x_eval, y_eval)
