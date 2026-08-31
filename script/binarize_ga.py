@@ -238,7 +238,7 @@ def main():
 
     plt.tight_layout()
     plt.savefig("./output/binarize_ga.png")
-    print("グラフを ./output/binarize_ga.png に保存した．")
+    print("グラフを ./output/binarize_ga_noBN.png に保存した．")
 
 
 if __name__ == "__main__":
