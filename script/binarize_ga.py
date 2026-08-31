@@ -79,6 +79,7 @@ def genetic_algorithm(model, x_eval, y_eval):
 
     # 乱数シード固定
     torch.manual_seed(42)
+    np.random.seed(42)
 
     weight = 128 * 784 + 10 * 128
     bias = 128 + 10
