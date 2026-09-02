@@ -7,8 +7,8 @@ from torchvision import datasets, transforms
 class BinarizedNeuroEvo(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(784, 64, bias=True)
-        self.fc2 = nn.Linear(64, 10)
+        self.fc1 = nn.Linear(784, 32, bias=True)
+        self.fc2 = nn.Linear(32, 10)
 
     def forward(self, x):
         x = x.view(-1, 784)
@@ -24,14 +24,14 @@ def evaluate(model, w, b, x, y):
     個体の適応度を計算する関数
 
     """
-    w_size = 64 * 784
+    w_size = 32 * 784
 
     # GAではパラメータを一次元で管理しているため、一次元のパラメータをfc1とfc2に分割
-    model.fc1.weight.data = w[:w_size].view(64, 784).clone()
-    model.fc2.weight.data = w[w_size:].view(10, 64).clone()
+    model.fc1.weight.data = w[:w_size].view(32, 784).clone()
+    model.fc2.weight.data = w[w_size:].view(10, 32).clone()
 
-    model.fc1.bias.data = b[:64].clone()        
-    model.fc2.bias.data = b[64:].clone()        # fc2.bias
+    model.fc1.bias.data = b[:32].clone()        
+    model.fc2.bias.data = b[32:].clone()        # fc2.bias
 
     # BNがなくなったのでtrain/evalの区別は不要、evalで統一
     model.eval()
@@ -81,8 +81,8 @@ def genetic_algorithm(model, x_eval, y_eval):
     torch.manual_seed(42)
     np.random.seed(42)
 
-    weight = 64 * 784 + 10 * 64
-    bias = 64 + 10
+    weight = 32 * 784 + 10 * 32
+    bias = 32 + 10
 
     # 島の数 * 島あたりの個体数 * 重みの総数の乱数を生成し、二値化
     island_w = torch.where(
@@ -214,11 +214,11 @@ def main():
     best_w, best_b, acc_history, loss_history = genetic_algorithm(model, x_eval, y_eval)
 
     # 最終的な最強パラメータをセット
-    w1_size = 64 * 784
-    model.fc1.weight.data = best_w[:w1_size].view(64, 784)
-    model.fc2.weight.data = best_w[w1_size:].view(10, 64)
-    model.fc1.bias.data = best_b[:64].clone()    
-    model.fc2.bias.data = best_b[64:].clone()  
+    w1_size = 32 * 784
+    model.fc1.weight.data = best_w[:w1_size].view(32, 784)
+    model.fc2.weight.data = best_w[w1_size:].view(10, 32)
+    model.fc1.bias.data = best_b[:32].clone()    
+    model.fc2.bias.data = best_b[32:].clone()  
 
     # 学習曲線の描画
     plt.figure(figsize=(10, 4))
@@ -237,8 +237,7 @@ def main():
     plt.grid(True)
 
     plt.tight_layout()
-    plt.savefig("./output/binarize_ga_noBN_64.png")
-    print("グラフを ./output/binarize_ga_noBN.png に保存した．")
+    plt.savefig("./output/binarize_ga_noBN_32.png")
 
 
 if __name__ == "__main__":
