@@ -202,9 +202,9 @@ def main():
         root="./data", train=True, download=True, transform=transform
     )
 
-    eval_size = 500
+    eval_size = 3000
     # 再現性のために乱数を制御
-    data_seed = 2
+    data_seed = 42
     torch.manual_seed(data_seed)
     indices = torch.randperm(len(dataset))[:eval_size]
     x_eval = torch.stack([dataset[i][0] for i in indices])
@@ -222,6 +222,13 @@ def main():
     model.fc2.weight.data = best_w[w1_size:].view(10, 64)
     model.fc1.bias.data = best_b[:64].clone()    
     model.fc2.bias.data = best_b[64:].clone()  
+
+    # テスト
+    test_indices = torch.randperm(len(dataset))[eval_size:eval_size+2000]  # 学習に使ってない範囲
+    x_test = torch.stack([dataset[i][0] for i in test_indices]) 
+    y_test = torch.tensor([dataset[i][1] for i in test_indices])
+    test_acc, test_loss = evaluate(model, best_w, best_b, x_test, y_test)
+    print(f"テストセットでのAccuracy: {test_acc*100:.2f}%")
 
     # 学習曲線の描画
     plt.figure(figsize=(10, 4))
