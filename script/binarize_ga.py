@@ -202,7 +202,10 @@ def main():
         root="./data", train=True, download=True, transform=transform
     )
 
-    eval_size = 250
+    eval_size = 500
+    # 再現性のために乱数を制御
+    data_seed = 2
+    torch.manual_seed(data_seed)
     indices = torch.randperm(len(dataset))[:eval_size]
     x_eval = torch.stack([dataset[i][0] for i in indices])
     y_eval = torch.tensor([dataset[i][1] for i in indices])
