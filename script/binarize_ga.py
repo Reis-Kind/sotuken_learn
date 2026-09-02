@@ -227,17 +227,21 @@ def main():
     plt.xlabel("Generation")
     plt.ylabel("Accuracy")
     plt.title("Accuracy History (2-Layer BNN)")
-    plt.grid(True)
+    plt.minorticks_on()
+    plt.grid(True, which="major", linestyle="-", linewidth=0.6, alpha=0.7)
+    plt.grid(True, which="minor", linestyle=":", linewidth=0.4, alpha=0.4)
 
     plt.subplot(1, 2, 2)
     plt.plot(range(1, len(loss_history) + 1), loss_history, "r-")
     plt.xlabel("Generation")
     plt.ylabel("Cross Entropy Loss")
     plt.title("Loss History")
-    plt.grid(True)
+    plt.minorticks_on()
+    plt.grid(True, which="major", linestyle="-", linewidth=0.6, alpha=0.7)
+    plt.grid(True, which="minor", linestyle=":", linewidth=0.4, alpha=0.4)
 
     plt.tight_layout()
-    plt.savefig("./output/binarize_ga_noBN_64.png")
+    plt.savefig("./output/binarize_ga_noBN.png")
 
 
 if __name__ == "__main__":
