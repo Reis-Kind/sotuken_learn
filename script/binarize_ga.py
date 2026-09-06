@@ -202,7 +202,7 @@ def main():
         root="./data", train=True, download=True, transform=transform
     )
 
-    eval_size = 3000
+    eval_size = 1500
     # 再現性のために乱数を制御
     data_seed = 42
     torch.manual_seed(data_seed)
