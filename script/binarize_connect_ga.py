@@ -1,3 +1,4 @@
+import os
 import copy
 import torch 
 import torch.nn as nn
@@ -39,7 +40,7 @@ class BinarizedNeuroEvo(nn.Module):
     def __init__(self):
         super().__init__()
         self.fc1 = nn.Linear(784, 64, bias=True)
-        self.fc2 = nn.Linear(64, 10)
+        self.fc2 = nn.Linear(64, 10, bias=True)
 
     def forward(self, x):
         x = x.view(-1, 784)
@@ -51,6 +52,14 @@ class BinarizedNeuroEvo(nn.Module):
         w2 = BinarizeSTE.apply(self.fc2.weight)
         x = nn.functional.linear(x, w2, self.fc2.bias)
         return x
+
+    def clipping(self):
+        """
+        実数重みが暴走しないよう-1 ~ 1に制限する
+
+        """
+        self.fc1.weight.data.clamp_(-1.0, 1.0)
+        self.fc2.weight.data.clamp_(-1.0, 1.0)
 
 def evaluate(model, x, y):
     model.eval()
@@ -129,10 +138,7 @@ def train_with_ga(model, train_loader, test_loader, device):
             loss = cross_entropy_loss(model, data, target)
             loss.backward()
             optimizer.step()
-
-            with torch.no_grad():
-                model.fc1.weight.clamp_(-1.0, 1.0)
-                model.fc2.weight.clamp_(-1.0, 1.0)
+            model.clipping() 
 
             running_loss += loss.item() * data.size(0)
 
@@ -193,40 +199,57 @@ def main():
     model = BinarizedNeuroEvo()
     train_losses, test_accuracies, rescue_events = train_with_ga(model, train_loader, test_loader, device)
 
-    # --- main 内でグラフの描画 ---
+    # --- グラフ描画 ---
     epochs = range(1, len(train_losses) + 1)
-    
-    fig, ax1 = plt.subplots(figsize=(10, 5))
 
-    # 1. 訓練損失 (Loss) のプロット（左Y軸）
-    color = 'tab:red'
-    ax1.set_xlabel('Epoch')
-    ax1.set_ylabel('Train Loss', color=color)
-    line1 = ax1.plot(epochs, train_losses, color=color, marker='o', label='Train Loss')
-    ax1.tick_params(axis='y', labelcolor=color)
-    ax1.grid(True, linestyle='--', alpha=0.5)
+    fig, ax1 = plt.subplots(figsize=(11, 6))
 
-    # 2. テスト精度 (Accuracy) のプロット（右Y軸）
+    # 1. 訓練損失(左Y軸)
+    color1 = 'tab:red'
+    ax1.set_xlabel('Epoch', fontsize=12)
+    ax1.set_ylabel('Train Loss', color=color1, fontsize=12)
+    line1 = ax1.plot(epochs, train_losses, color=color1, marker='o',
+                      markersize=5, linewidth=1.8, label='Train Loss')
+    ax1.tick_params(axis='y', labelcolor=color1)
+
+    # 補助目盛り + グリッド
+    ax1.minorticks_on()
+    ax1.grid(True, which='major', linestyle='-', linewidth=0.6, alpha=0.6)
+    ax1.grid(True, which='minor', linestyle=':', linewidth=0.4, alpha=0.3)
+
+    # 2. テスト精度(右Y軸)
     ax2 = ax1.twinx()
-    color = 'tab:blue'
-    ax2.set_ylabel('Test Accuracy (%)', color=color)
-    line2 = ax2.plot(epochs, test_accuracies, color=color, marker='s', label='Test Accuracy')
-    ax2.tick_params(axis='y', labelcolor=color)
+    color2 = 'tab:blue'
+    ax2.set_ylabel('Test Accuracy (%)', color=color2, fontsize=12)
+    line2 = ax2.plot(epochs, test_accuracies, color=color2, marker='s',
+                      markersize=5, linewidth=1.8, label='Test Accuracy')
+    ax2.tick_params(axis='y', labelcolor=color2)
+    ax2.set_ylim(0, 100)  # accuracyの範囲を0-100%に固定
 
-    # 3. GAレスキュー発生エポックに垂直線を表示
+    # 3. GA摂動発生エポックを縦線+背景の薄い帯で強調
+    for i, ev in enumerate(rescue_events):
+        ax1.axvline(x=ev, color='purple', linestyle=':', linewidth=1.8, alpha=0.8,
+                    label='GA Rescue Event' if i == 0 else "")
+        ax1.axvspan(ev - 0.15, ev + 0.15, color='purple', alpha=0.08)
+
+    # タイトル・凡例
+    plt.title('Training Loss, Test Accuracy & GA Rescue Events', fontsize=14, pad=12)
+    lines = line1 + line2
+    labels = [l.get_label() for l in lines]
     if rescue_events:
-        for i, ev in enumerate(rescue_events):
-            ax1.axvline(x=ev, color='purple', linestyle=':', linewidth=2, 
-                        label='GA Rescue Event' if i == 0 else "")
+        rescue_handles, rescue_labels = ax1.get_legend_handles_labels()
+        lines = lines + [h for h, l in zip(rescue_handles, rescue_labels) if l == 'GA Rescue Event']
+        labels = labels + [l for l in rescue_labels if l == 'GA Rescue Event']
+    ax1.legend(lines, labels, loc='upper left', framealpha=0.9)
 
-    # 凡例の集約表示
-    lines1, labels1 = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+    # x軸の目盛りを整数(エポック番号)に固定
+    ax1.set_xticks(list(epochs))
 
-    plt.title('Training Loss, Test Accuracy & GA Rescue Events')
     fig.tight_layout()
-    plt.show()
+    os.makedirs('./output', exist_ok=True)
+    plt.savefig('./output/ga_rescue_result.png', dpi=150)
+    print("\nグラフを ./output/ga_rescue_result.png に保存した")
+
 
 
 if __name__ == '__main__':
