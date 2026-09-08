@@ -20,15 +20,31 @@ class BinarizeSTE(torch.autograd.Function):
         入力xの各要素が 0 以上であれば 1.0、0未満であれば -1.0 に変換
         
         """
+        ctx.save_for_backward(x)
         return torch.where(x >= 0, 1.0, -1.0)
 
     @staticmethod
     def backward(ctx, grad_output):
         """
-        出力側の勾配をそのまま入力側に通過
+        二値化処理は本来微分できないため、
+        そのままでは勾配を計算できない。
+        そこでSTEを用いて、一定の範囲では
+        出力側の勾配をそのまま入力側へ伝える。
+
+        ただし、入力値の絶対値が 1.0 を超えている場合は
+        勾配を 0 とする。
+        これにより、実数重みが二値化の範囲から大きく外れた場合に
+        更新され続けることを防ぐ。
         
         """
-        return grad_output
+        # forward() で保存しておいた入力値を取得
+        x, = ctx.saved_tensors
+        # 出力側から伝わってきた勾配をコピー
+        grad = grad_output.clone()
+        # |x| > 1.0 の領域では勾配を0にして更新を止める
+        grad[x.abs() > 1.0] = 0.0
+
+        return grad
 
 
 class BinarizedNeuroEvo(nn.Module):
@@ -86,6 +102,8 @@ def genetic_algorithm(model, x_batch, y_batch):
     n_candidate = 8
     mutation_rate = 0.001
 
+    model.eval()
+
     # 現状のモデルでの損失を計算
     origin_loss = cross_entropy_loss(model, x_batch, y_batch).item()
     best_loss = origin_loss
@@ -115,7 +133,7 @@ def genetic_algorithm(model, x_batch, y_batch):
 
 def train_with_ga(model, train_loader, test_loader, device):
     n_epoch = 20
-    lr = 0.001
+    lr = 0.0005
 
     # 何エポック停滞したらGAを使うか
     ga_act = 4
@@ -189,6 +207,9 @@ def train_with_ga(model, train_loader, test_loader, device):
 
 
 def main():
+
+    torch.manual_seed(42)
+
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
