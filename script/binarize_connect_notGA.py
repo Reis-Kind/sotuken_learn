@@ -80,7 +80,7 @@ def train_plain(model, train_loader, test_loader, device):
     GA摂動なしの、通常のBinaryConnect学習(比較用ベースライン)
     """
     n_epoch = 20
-    lr = 0.001
+    lr = 0.0005
 
     model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
