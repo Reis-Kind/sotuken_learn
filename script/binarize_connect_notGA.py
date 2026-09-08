@@ -20,22 +20,38 @@ class BinarizeSTE(torch.autograd.Function):
         入力xの各要素が 0 以上であれば 1.0、0未満であれば -1.0 に変換
         
         """
+        ctx.save_for_backward(x)
         return torch.where(x >= 0, 1.0, -1.0)
 
     @staticmethod
     def backward(ctx, grad_output):
         """
-        出力側の勾配をそのまま入力側に通過
+        二値化処理は本来微分できないため、
+        そのままでは勾配を計算できない。
+        そこでSTEを用いて、一定の範囲では
+        出力側の勾配をそのまま入力側へ伝える。
+
+        ただし、入力値の絶対値が 1.0 を超えている場合は
+        勾配を 0 とする。
+        これにより、実数重みが二値化の範囲から大きく外れた場合に
+        更新され続けることを防ぐ。
         
         """
-        return grad_output
+        # forward() で保存しておいた入力値を取得
+        x, = ctx.saved_tensors
+        # 出力側から伝わってきた勾配をコピー
+        grad = grad_output.clone()
+        # |x| > 1.0 の領域では勾配を0にして更新を止める
+        grad[x.abs() > 1.0] = 0.0
+
+        return grad
 
 
 class BinarizedNeuroEvo(nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(784, 64, bias=True)
-        self.fc2 = nn.Linear(64, 10, bias=True)
+        self.fc1 = nn.Linear(784, 64)
+        self.fc2 = nn.Linear(64, 10)
         self.bn1 = nn.BatchNorm1d(64)
 
     def forward(self, x):

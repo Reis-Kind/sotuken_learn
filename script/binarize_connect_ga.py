@@ -39,8 +39,8 @@ class BinarizedNeuroEvo(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.fc1 = nn.Linear(784, 64, bias=True)
-        self.fc2 = nn.Linear(64, 10, bias=True)
+        self.fc1 = nn.Linear(784, 64)
+        self.fc2 = nn.Linear(64, 10)
         self.bn1 = nn.BatchNorm1d(64)
 
     def forward(self, x):
@@ -84,7 +84,7 @@ def genetic_algorithm(model, x_batch, y_batch):
     
     """
     n_candidate = 8
-    mutation_rate = 0.02
+    mutation_rate = 0.001
 
     # 現状のモデルでの損失を計算
     origin_loss = cross_entropy_loss(model, x_batch, y_batch).item()
@@ -118,7 +118,7 @@ def train_with_ga(model, train_loader, test_loader, device):
     lr = 0.001
 
     # 何エポック停滞したらGAを使うか
-    ga_act = 2
+    ga_act = 4
     # 停滞カウント
     count = 0
 
