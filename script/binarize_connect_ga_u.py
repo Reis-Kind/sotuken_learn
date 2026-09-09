@@ -101,24 +101,25 @@ class BinaryConnectMnist(nn.Module):
         self.clipping()
 
 
-def evaluate(model, test_loader, device):
+def evaluate(model, x, y, device):
     """
     正答率の計算
     
     """
     model.eval()
-    correct = 0
-    total = 0
+
+    x = x.to(device)
+    y = y.to(device)
 
     with torch.no_grad():
-        for data, target in test_loader:
-            data, target = data.to(device), target.to(device)
-            output = model(data)
-            pred = output.argmax(dim=1, keepdim=True)
-            correct += pred.eq(target.view_as(pred)).sum().item()
-            total += target.size(0)
+        output = model(x)
+        pred = output.argmax(dim=1)
+
+        correct = (pred == y).sum().item()
+        total = y.size(0)
 
     accuracy = 100.0 * correct / total
+
     return accuracy
 
 
@@ -129,7 +130,7 @@ def cross_entropy_loss(model, x, y):
     return loss
 
 
-def genetic_algorithm(model, x_batch, y_batch):
+def genetic_algorithm(model, x_batch, y_batch, device):
     """
     局所解を何とかするためのGA(突然変異とエリート選択)
     
@@ -139,9 +140,9 @@ def genetic_algorithm(model, x_batch, y_batch):
 
     model.eval()
 
-    # 現状のモデルでの損失を計算
-    origin_loss = cross_entropy_loss(model, x_batch, y_batch).item()
-    best_loss = origin_loss
+    # 現状のモデルでの正答率を計算
+    origin_acc = evaluate(model, x_batch, y_batch, device)
+    best_acc = origin_acc
     best_state = copy.deepcopy(model.state_dict())
 
     # 複数の変異候補を作成して評価
@@ -152,19 +153,19 @@ def genetic_algorithm(model, x_batch, y_batch):
             mask = torch.rand_like(w) < mutation_rate
             w[mask] = -w[mask]
 
-        # 変異モデルの損失を計算して評価
+        # 変異モデルの正答率を計算して評価
         model.load_state_dict(candidate)
-        loss = cross_entropy_loss(model, x_batch, y_batch).item()
-        # より良い損失が得られた場合は最適状態を更新
-        if loss < best_loss:
-            best_loss = loss
+        acc = evaluate(model, x_batch, y_batch, device)
+        # より良い正答率が得られた場合は最適状態を更新
+        if acc > best_acc:
+            best_acc = acc
             best_state = copy.deepcopy(candidate)
 
     # 最も優れていた状態をモデルに反映
     model.load_state_dict(best_state)
-    improved = best_loss < origin_loss
+    improved = best_acc > origin_acc
 
-    return best_loss, improved
+    return best_acc, improved
 
 
 
@@ -224,7 +225,15 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
     test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
-    test_loader = DataLoader(test_dataset, batch_size=1000, shuffle=False)
+
+    # テストデータをTensorにまとめる
+    test_x = torch.stack(
+        [test_dataset[i][0] for i in range(len(test_dataset))]
+    )
+
+    test_y = torch.tensor(
+        [test_dataset[i][1] for i in range(len(test_dataset))]
+    )
 
     optimizer = optim.Adam(
         list(model.layers.parameters()) +
@@ -261,7 +270,7 @@ def main():
             running_loss += loss.item() * data.size(0)
         # 平均loss
         epoch_loss = running_loss / len(train_loader.dataset)
-        epoch_acc = evaluate(model, test_loader, device)
+        epoch_acc = evaluate(model, test_x, test_y, device)
 
         scheduler.step()
 
@@ -279,13 +288,13 @@ def main():
                 count += 1
 
             if count >= ga_act:
-                help_loss, improved = genetic_algorithm(model, help_x, help_y)
+                help_acc, improved = genetic_algorithm(model, help_x, help_y, device)
                 count = 0
                 help_events.append(epoch)
             
                 print(f"  → Epoch {epoch}: 停滞検知、GA摂動を実施 "
                       f"(改善={'あり' if improved else 'なし'}, "
-                      f"rescue_loss={help_loss:.4f})")
+                      f"rescue_acc={help_acc:.2f})")
             
 
         print(f"Epoch [{epoch}/{epochs}] - Loss: {epoch_loss:.4f} | Test Acc: {epoch_acc:.2f}%")
