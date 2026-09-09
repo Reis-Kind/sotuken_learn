@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 from torchvision import datasets, transforms
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 
 class BinaryConnectMnist(nn.Module):
     def __init__(self):
@@ -209,7 +209,7 @@ def main():
     batch_size = 64
     learning_rate = 0.001
     ga_act=4
-    use_ga=False
+    use_ga=True
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') # デバイス判定
     print(f"使用デバイス: {device}")
@@ -220,20 +220,26 @@ def main():
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
     ])
-    
-    train_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+
+    # --- 訓練用とGA検証用に分割 ---
+    # 訓練: 55000枚、GA検証用: 5000枚(学習には一切使わない)
+    full_train_dataset = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
+    train_size = 55000
+    val_size = len(full_train_dataset) - train_size
+    train_dataset, ga_val_dataset = random_split(full_train_dataset, [train_size, val_size], generator=torch.Generator().manual_seed(42) )
+
+
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+    # GA検証用データをテンソルにまとめておく(毎回同じプールからサンプリングする)
+    ga_val_x = torch.stack([ga_val_dataset[i][0] for i in range(len(ga_val_dataset))])
+    ga_val_y = torch.tensor([ga_val_dataset[i][1] for i in range(len(ga_val_dataset))])
 
     test_dataset = datasets.MNIST(root='./data', train=False, download=True, transform=transform)
 
     # テストデータをTensorにまとめる
-    test_x = torch.stack(
-        [test_dataset[i][0] for i in range(len(test_dataset))]
-    )
-
-    test_y = torch.tensor(
-        [test_dataset[i][1] for i in range(len(test_dataset))]
-    )
+    test_x = torch.stack([test_dataset[i][0] for i in range(len(test_dataset))])
+    test_y = torch.tensor([test_dataset[i][1] for i in range(len(test_dataset))])
 
     optimizer = optim.Adam(
         list(model.layers.parameters()) +
@@ -245,11 +251,7 @@ def main():
     # 学習率をcos関数の波形に沿って徐々に小さくしていく
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
-    if use_ga:
-        help_x, help_y = next(iter(DataLoader(train_loader.dataset, batch_size=500, shuffle=True)))
-        help_x, help_y = help_x.to(device), help_y.to(device)
-
-    best_loss_so_far = float('inf')
+    best_acc_so_far = 0.0
     count = 0
     help_events = []
     train_losses = []
@@ -281,20 +283,25 @@ def main():
 
             # 停滞検知
             # 前エポックまでの最小損失 best_loss_so_farから今回のepoch_lossを引いた低下量が0.001より大きいかを検証
-            if best_loss_so_far - epoch_loss > 1e-3:
-                best_loss_so_far = epoch_loss
+            if epoch_acc - best_acc_so_far > 0.01:
+                best_acc_so_far = epoch_acc
                 count = 0
             else:
                 count += 1
 
             if count >= ga_act:
+
+                # GA検証用プール(訓練にも評価にも使っていない5000枚)から500枚サンプリング
+                perm = torch.randperm(len(ga_val_x))[:500]
+                help_x, help_y = ga_val_x[perm], ga_val_y[perm]
+
                 help_acc, improved = genetic_algorithm(model, help_x, help_y, device)
                 count = 0
                 help_events.append(epoch)
             
                 print(f"  → Epoch {epoch}: 停滞検知、GA摂動を実施 "
                       f"(改善={'あり' if improved else 'なし'}, "
-                      f"rescue_acc={help_acc:.2f})")
+                      f"rescue_acc={help_acc:.2f}%)")
             
 
         print(f"Epoch [{epoch}/{epochs}] - Loss: {epoch_loss:.4f} | Test Acc: {epoch_acc:.2f}%")
