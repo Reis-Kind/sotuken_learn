@@ -132,7 +132,7 @@ def genetic_algorithm(model, x_batch, y_batch):
     return best_loss, improved
 
 def train_with_ga(model, train_loader, test_loader, device):
-    n_epoch = 20
+    n_epoch = 100
     lr = 0.0005
 
     # 何エポック停滞したらGAを使うか

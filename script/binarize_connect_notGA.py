@@ -79,7 +79,7 @@ def train_plain(model, train_loader, test_loader, device):
     """
     GA摂動なしの、通常のBinaryConnect学習(比較用ベースライン)
     """
-    n_epoch = 20
+    n_epoch = 100
     lr = 0.0005
 
     model.to(device)
@@ -125,6 +125,9 @@ def train_plain(model, train_loader, test_loader, device):
 
 
 def main():
+
+    torch.manual_seed(42)
+
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
