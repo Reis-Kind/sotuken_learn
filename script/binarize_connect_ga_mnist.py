@@ -12,21 +12,23 @@ class BinaryConnectMnist(nn.Module):
         super().__init__()
 
         # 実数の重み
-        self.fc1 = nn.Linear(784, 128, bias=False)
-        self.fc2 = nn.Linear(128, 10, bias=False)
-        self.layers = nn.ModuleList([self.fc1, self.fc2])
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=5, padding=2, bias=False)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=5, padding=2,  bias=False)
+        self.layers = nn.ModuleList([self.conv1, self.conv2])
 
         # 二値化の重み
-        self.b_fc1 = nn.Linear(784, 128, bias=False)
-        self.b_fc2 = nn.Linear(128, 10, bias=False)
-        self.b_layers = nn.ModuleList([self.b_fc1, self.b_fc2])
+        self.b_conv1 = nn.Conv2d(1, 16, kernel_size=5, padding=2, bias=False)
+        self.b_conv2 = nn.Conv2d(16, 32, kernel_size=5, padding=2,  bias=False)
+        self.b_layers = nn.ModuleList([self.b_conv1, self.b_conv2])
 
         # 神の一手
-        self.bn1 = nn.BatchNorm1d(128)
-        self.bn2 = nn.BatchNorm1d(10)
+        self.bn1 = nn.BatchNorm2d(16)
+        self.bn2 = nn.BatchNorm2d(32)
 
+        self.pool = nn.MaxPool2d(2)
         self.relu = nn.ReLU()
 
+        self.fc = nn.Linear(32 * 7 * 7, 10)
 
     def binarize(self):
         """
@@ -49,17 +51,19 @@ class BinaryConnectMnist(nn.Module):
         予測値をだす？誤差から逆算する前に一旦今の結果を見る感じ
 
         """
-        # 全結合層に入力するために一次元に
-        x = x.view(x.size(0), -1)
 
         self.binarize()
 
-        # 正規化したあとで非線形関数に入れたいのでここに入れない
-        x = self.b_fc1(x)
+        x = self.b_conv1(x)
         x = self.relu(self.bn1(x))
-        # 0 ~ 9を判別させたいのでこの層には非線形関数はいれない
-        x = self.b_fc2(x)
-        x = self.bn2(x)
+        x = self.pool(x)
+
+        x = self.b_conv2(x)
+        x = self.relu(self.bn2(x))
+        x = self.pool(x)
+
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
 
         return x
 
@@ -148,7 +152,7 @@ def genetic_algorithm(model, x_batch, y_batch, device):
     # 複数の変異候補を作成して評価
     for i in range(n_candidate):
         candidate = copy.deepcopy(model.state_dict())
-        for key in ['fc1.weight', 'fc2.weight']:
+        for key in ['conv1.weight', 'conv2.weight']:
             w = candidate[key]
             mask = torch.rand_like(w) < mutation_rate
             w[mask] = -w[mask]
@@ -205,7 +209,7 @@ def main():
 
     torch.manual_seed(42)
 
-    epochs = 50
+    epochs = 10
     batch_size = 64
     learning_rate = 0.001
     ga_act=4
@@ -244,7 +248,8 @@ def main():
     optimizer = optim.Adam(
         list(model.layers.parameters()) +
         list(model.bn1.parameters()) +
-        list(model.bn2.parameters()), 
+        list(model.bn2.parameters()) +
+        list(model.fc.parameters()),
         lr=learning_rate
     )
 
