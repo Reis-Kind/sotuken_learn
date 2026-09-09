@@ -154,6 +154,9 @@ def plot(train_losses, test_accuracies):
     print("\nグラフを 'binaryconnect_mnist_result.png' として保存した．")
 
 def main():
+
+    torch.manual_seed(42)
+
     epochs = 10
     batch_size = 64
     learning_rate = 0.001
