@@ -149,11 +149,12 @@ def genetic_algorithm(model, x_batch, y_batch, device):
     # 現状のモデルでの正答率を計算
     origin_acc = evaluate(model, x_batch, y_batch, device)
     best_acc = origin_acc
-    best_state = copy.deepcopy(model.state_dict())
+    origin_state = copy.deepcopy(model.state_dict())
+    best_state = copy.deepcopy(origin_state)
 
     # 複数の変異候補を作成して評価
     for i in range(n_candidate):
-        candidate = copy.deepcopy(model.state_dict())
+        candidate = copy.deepcopy(origin_state)
         for key in ['conv1.weight', 'conv2.weight']:
             w = candidate[key]
             mask = torch.rand_like(w) < mutation_rate
