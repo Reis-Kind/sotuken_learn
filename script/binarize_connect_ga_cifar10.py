@@ -216,7 +216,7 @@ def main():
     batch_size = 64
     learning_rate = 0.001
     ga_act=4
-    use_ga=True
+    use_ga=False
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') # デバイス判定
     print(f"使用デバイス: {device}")

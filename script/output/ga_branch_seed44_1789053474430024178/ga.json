@@ -1,0 +1,49 @@
+{
+  "before": 65.2,
+  "after": 66.8,
+  "selected": 2,
+  "changed": 14,
+  "candidates": [
+    {
+      "candidate": 1,
+      "changed": 10,
+      "accuracy": 64.8
+    },
+    {
+      "candidate": 2,
+      "changed": 14,
+      "accuracy": 66.8
+    },
+    {
+      "candidate": 3,
+      "changed": 19,
+      "accuracy": 66.6
+    },
+    {
+      "candidate": 4,
+      "changed": 10,
+      "accuracy": 64.8
+    },
+    {
+      "candidate": 5,
+      "changed": 16,
+      "accuracy": 65.6
+    },
+    {
+      "candidate": 6,
+      "changed": 17,
+      "accuracy": 66.2
+    },
+    {
+      "candidate": 7,
+      "changed": 14,
+      "accuracy": 65.4
+    },
+    {
+      "candidate": 8,
+      "changed": 19,
+      "accuracy": 65.0
+    }
+  ],
+  "seconds": 1.5570622539999022
+}

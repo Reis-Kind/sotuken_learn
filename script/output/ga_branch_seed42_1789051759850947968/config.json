@@ -1,0 +1,10 @@
+{
+  "model_file": "ga_test_cifar.py",
+  "seed": 42,
+  "warmup": 15,
+  "follow": 5,
+  "schedule_epochs": 30,
+  "model_sha256": "fed67da3d1ba666aca0fbef6c47f09bd75b2f4dbde99ccde99f294e6a0cfd06e",
+  "torch_version": "2.6.0+cu124",
+  "device": "cpu"
+}
